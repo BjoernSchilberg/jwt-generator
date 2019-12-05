@@ -12,8 +12,9 @@ import (
 )
 
 var secret string
+var exp uint16
 
-type JWTClaims struct {
+type jwtClaims struct {
 	jwt.StandardClaims
 	ID     string   `json:"id"`
 	Email  string   `json:"email"`
@@ -23,6 +24,7 @@ type JWTClaims struct {
 func main() {
 	root := &cobra.Command{}
 	root.PersistentFlags().StringVarP(&secret, "secret", "s", "", "secret value to use")
+	root.PersistentFlags().Uint16VarP(&exp, "expiresAt", "x", 0, "when the token expires ( in hours )")
 
 	gen := &cobra.Command{
 		Use: "gen",
@@ -41,6 +43,10 @@ func main() {
 func validateArgs(cmd *cobra.Command) {
 	if secret == "" {
 		log.Fatal("Must provide a secret")
+	}
+
+	if exp == 0 {
+		log.Fatal("Must provide a expiration time")
 	}
 }
 
@@ -62,12 +68,13 @@ func generate(cmd *cobra.Command, args []string) {
 		log.Fatal("Must provide a user")
 	}
 
-	claims := &JWTClaims{
+	claims := &jwtClaims{
 		ID:     user,
 		Email:  email,
 		Groups: groups,
 	}
-	claims.ExpiresAt = time.Now().Add(1000 * time.Hour).Unix()
+	claims.ExpiresAt = time.Now().Add(time.Duration(exp) * time.Hour).Unix()
+	log.Printf("ExpiresAt : %v", time.Unix(claims.ExpiresAt, 0))
 
 	result, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
 	if err != nil {
